@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.spec
+dist/
+build/
+.env
+.venv/
+env/
+venv/
+*.zip
+*.wav
+*.mp3
+.vscode/
+.idea/

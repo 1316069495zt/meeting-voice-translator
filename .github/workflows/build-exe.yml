@@ -1,0 +1,48 @@
+name: Build Windows Executable
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --noconfirm --onedir --windowed `
+          --name "MeetingVoiceCopilot" `
+          --add-data "ui;ui" `
+          --add-data "core;core" `
+          --clean `
+          app.py
+
+    - name: Create ZIP archive
+      run: |
+        Compress-Archive -Path "dist/MeetingVoiceCopilot/*" -DestinationPath "MeetingVoiceCopilot-Windows-x64.zip"
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MeetingVoiceCopilot-Windows-x64
+        path: MeetingVoiceCopilot-Windows-x64.zip
+        retention-days: 14
