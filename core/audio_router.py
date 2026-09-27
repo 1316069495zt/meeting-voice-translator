@@ -8,7 +8,7 @@ import queue
 class AudioRouter:
     """
     音频路由管理器：
-    负责检测系统声卡、识别 VB-CABLE 虚拟麦克风通道、录音与推流。
+    负责检测系统声卡、去重与智能过滤、识别 VB-CABLE 虚拟麦克风通道、录音与推流。
     """
     def __init__(self):
         self.sample_rate = 16000
@@ -19,24 +19,54 @@ class AudioRouter:
 
     @staticmethod
     def get_devices():
-        """获取系统所有输入与输出设备"""
+        """
+        获取系统所有输入与输出设备，自动按默认 Host API 过滤去重，
+        解决 Windows 下 MME/DirectSound/WASAPI 重复列出相同麦克风的问题。
+        """
         devices = sd.query_devices()
+        default_hostapi = sd.default.hostapi
         inputs = []
         outputs = []
         vb_cable_input_id = None
         vb_cable_output_id = None
 
+        seen_in = set()
+        seen_out = set()
+
         for idx, dev in enumerate(devices):
             name = dev['name']
-            if dev['max_input_channels'] > 0:
-                inputs.append({"id": idx, "name": name})
-                if "CABLE Output" in name:
-                    vb_cable_output_id = idx
+            hostapi = dev['hostapi']
 
-            if dev['max_output_channels'] > 0:
+            # 优先匹配虚拟声卡
+            if "CABLE Output" in name and vb_cable_output_id is None:
+                vb_cable_output_id = idx
+            if "CABLE Input" in name and vb_cable_input_id is None:
+                vb_cable_input_id = idx
+
+            # 过滤掉非默认 Host API 的重复设备，保持列表清爽
+            if hostapi != default_hostapi:
+                continue
+
+            if dev['max_input_channels'] > 0 and name not in seen_in:
+                seen_in.add(name)
+                inputs.append({"id": idx, "name": name})
+
+            if dev['max_output_channels'] > 0 and name not in seen_out:
+                seen_out.add(name)
                 outputs.append({"id": idx, "name": name})
-                if "CABLE Input" in name:
-                    vb_cable_input_id = idx
+
+        # 兜底：如果默认 hostapi 没筛出设备，则不过滤
+        if not inputs:
+            for idx, dev in enumerate(devices):
+                if dev['max_input_channels'] > 0 and dev['name'] not in seen_in:
+                    seen_in.add(dev['name'])
+                    inputs.append({"id": idx, "name": dev['name']})
+
+        if not outputs:
+            for idx, dev in enumerate(devices):
+                if dev['max_output_channels'] > 0 and dev['name'] not in seen_out:
+                    seen_out.add(dev['name'])
+                    outputs.append({"id": idx, "name": dev['name']})
 
         return {
             "inputs": inputs,
@@ -86,8 +116,12 @@ class AudioRouter:
     @staticmethod
     def play_audio(audio_bytes: bytes, target_device_id: int = None, local_monitor_id: int = None):
         """
-        将音频数据推流到指定设备（如 VB-CABLE Input），同时可选择在耳机进行本地监听
+        极速内存音频推流：
+        支持直接从内存流解码 WAV/MP3，推送到 VB-CABLE 虚拟麦克风并同步耳机监听。
         """
+        if not audio_bytes:
+            return
+
         try:
             data, fs = sf.read(io.BytesIO(audio_bytes))
 
@@ -97,7 +131,6 @@ class AudioRouter:
 
             # 2. 本地耳机同步监听
             if local_monitor_id is not None and local_monitor_id != target_device_id:
-                # 另起线程同步监听
                 threading.Thread(
                     target=lambda: sd.play(data, samplerate=fs, device=local_monitor_id),
                     daemon=True

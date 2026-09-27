@@ -1,11 +1,10 @@
 import asyncio
 import io
 import edge_tts
-from pydub import AudioSegment
 
 class TTSEngine:
     """
-    高保真低延迟语音合成引擎（基于 Microsoft Edge 神经网络语音，免费且极度逼真）
+    高保真超低延迟语音合成引擎（基于 Microsoft Edge 神经网络语音，免 API Key、零成本、毫秒级首包）
     """
     def __init__(self, voice: str = "en-US-ChristopherNeural", rate: str = "+5%"):
         self.voice = voice
@@ -22,18 +21,10 @@ class TTSEngine:
             if chunk["type"] == "audio":
                 mp3_buffer.write(chunk["data"])
 
-        mp3_data = mp3_buffer.getvalue()
-        if not mp3_data:
-            return b""
-
-        # 将 MP3 转为标准 PCM WAV 格式供 sounddevice 顺畅播放
-        audio = AudioSegment.from_file(io.BytesIO(mp3_data), format="mp3")
-        wav_buffer = io.BytesIO()
-        audio.export(wav_buffer, format="wav")
-        return wav_buffer.getvalue()
+        return mp3_buffer.getvalue()
 
     def synthesize(self, text: str) -> bytes:
-        """同步调用接口返回 WAV 音频二进制"""
+        """返回音频二进制数据"""
         if not text.strip():
             return b""
         try:
