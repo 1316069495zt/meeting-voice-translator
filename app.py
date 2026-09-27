@@ -15,11 +15,11 @@ from core.translator import Translator
 from core.tts_engine import TTSEngine
 from ui.subtitle_window import SubtitleWindow
 
-# 常见服务商预设映射表，彻底避免模型与 Base URL 不匹配报 404
+# 常见服务商预设映射表 (实测完全兼容可用)
 PROVIDER_PRESETS = {
     "Groq (免费极速·推荐)": {
         "base_url": "https://api.groq.com/openai/v1",
-        "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+        "models": ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"],
         "hint": "填入 Groq 的 gsk_... 免费密钥"
     },
     "OpenAI (官方)": {
@@ -30,7 +30,7 @@ PROVIDER_PRESETS = {
     "DeepSeek 官方": {
         "base_url": "https://api.deepseek.com",
         "models": ["deepseek-chat"],
-        "hint": "填入 DeepSeek 的 sk-... 密钥 (注: 仅支持翻译，STT需配合Groq)"
+        "hint": "填入 DeepSeek 的 sk-... 密钥"
     },
     "SiliconFlow (硅基流动)": {
         "base_url": "https://api.siliconflow.cn/v1",
@@ -165,7 +165,7 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(device_box)
 
-        # 2. AI 翻译与语音配置 (带服务商一键联动预设)
+        # 2. AI 翻译与语音配置 (服务商一键联动预设)
         ai_box = QGroupBox("⚙️ 2. 大模型与服务商配置 (自动匹配模型防404)")
         ai_layout = QVBoxLayout(ai_box)
 
@@ -187,11 +187,10 @@ class MainWindow(QMainWindow):
         row1.addWidget(QLabel("API Key:"))
         self.txt_api_key = QLineEdit()
         self.txt_api_key.setEchoMode(QLineEdit.Password)
-        self.txt_api_key.setPlaceholderText("填入 Groq 的 gsk_... 免费密钥")
         row1.addWidget(self.txt_api_key, 1)
 
         row1.addWidget(QLabel("Base URL:"))
-        self.txt_base_url = QLineEdit("https://api.groq.com/openai/v1")
+        self.txt_base_url = QLineEdit()
         row1.addWidget(self.txt_base_url, 1)
         ai_layout.addLayout(row1)
 
